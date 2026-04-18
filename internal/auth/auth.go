@@ -107,3 +107,18 @@ func MakeRefreshToken() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
+
+// GetAPIKey extracts perfectly matched ApiKey headers seamlessly
+func GetAPIKey(headers http.Header) (string, error) {
+	val := headers.Get("Authorization")
+	if val == "" {
+		return "", errors.New("no authorization header found")
+	}
+
+	prefix := "ApiKey "
+	if !strings.HasPrefix(val, prefix) {
+		return "", errors.New("malformed authorization header")
+	}
+
+	return strings.TrimPrefix(val, prefix), nil
+}

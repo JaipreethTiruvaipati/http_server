@@ -18,6 +18,7 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Could not connect to database :%s", err)
@@ -29,6 +30,7 @@ func main() {
 		DB:        dbQueries,
 		Platform:  platform,
 		JWTSecret: jwtSecret,
+		PolkaKey:  polkaKey,
 	}
 
 	fileServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -47,6 +49,7 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevoke)
 	mux.HandleFunc("PUT /api/users", apiCfg.handlerUsersUpdate)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerChirpsDelete)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerPolkaWebhooks)
 
 	server := &http.Server{
 		Handler: mux,

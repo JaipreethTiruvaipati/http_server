@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -67,27 +68,6 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 	})
 }
 
-func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
-	dbChirps, err := cfg.DB.GetChirps(r.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve chirps")
-		return
-	}
-
-	chirps := []Chirp{}
-	for _, dbChirp := range dbChirps {
-		chirps = append(chirps, Chirp{
-			ID:        dbChirp.ID,
-			CreatedAt: dbChirp.CreatedAt,
-			UpdatedAt: dbChirp.UpdatedAt,
-			Body:      dbChirp.Body,
-			UserID:    dbChirp.UserID,
-		})
-	}
-
-	respondWithJSON(w, http.StatusOK, chirps)
-}
-
 func (cfg *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 	chirpIDString := r.PathValue("chirpID")
 
@@ -110,6 +90,50 @@ func (cfg *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 		Body:      dbChirp.Body,
 		UserID:    dbChirp.UserID,
 	})
+}
+
+func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
+	authorIDString := r.URL.Query().Get("author_id")
+	sortDirection := r.URL.Query().Get("sort")
+
+	var dbChirps []database.Chirp
+	var err error
+
+	if authorIDString != "" {
+		authorID, errParse := uuid.Parse(authorIDString)
+		if errParse != nil {
+			respondWithError(w, http.StatusBadRequest, "Invalid author ID format")
+			return
+		}
+		dbChirps, err = cfg.DB.GetChirpsByAuthor(r.Context(), authorID)
+	} else {
+		dbChirps, err = cfg.DB.GetChirps(r.Context())
+	}
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve chirps")
+		return
+	}
+
+	chirps := []Chirp{}
+	for _, dbChirp := range dbChirps {
+		chirps = append(chirps, Chirp{
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			Body:      dbChirp.Body,
+			UserID:    dbChirp.UserID,
+		})
+	}
+
+	sort.Slice(chirps, func(i, j int) bool {
+		if sortDirection == "desc" {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		}
+		return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+	})
+
+	respondWithJSON(w, http.StatusOK, chirps)
 }
 
 func cleanChirp(text string) string {
